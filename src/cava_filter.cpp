@@ -36,11 +36,11 @@ class CavaFilter : public ProgramOpts {
     const int channels = 2;
     int channels_out = 1;
     const int height = 100;
-    double framerate = 10;
+    double framerate = 25;
     const size_t input_len_per_channel = 512;
     const int rate = 44100;
     int autosens = 0;
-    double smooth_factor = 0.1; // 1: smooth, >1 more smooth, <1 less smooth
+    double smooth_factor = 1; // 1: smooth, >1 more smooth, <1 less smooth
     int print_freq_bands = false;
     std::string ifile = "-";  // read from stdin
     std::string ofile = "-";  // write to stdout
@@ -102,7 +102,7 @@ not given, read from standard input.
   -S         stereo output, print the right channel bars followed on the line
              by the left channel bars
   -s <fact>  smooth factor <1.0 less smooth, >1.0 mode smooth (default: 1.0)
-  -a <auto>  value for cava autosens seting
+  -a <auto>  value for cava autosens setting
   -F         the first line printed is the frequencies of the bands
   )",
           get_program_name().c_str(), help_ver_text);
