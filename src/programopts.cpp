@@ -28,8 +28,8 @@
 
 #include "programopts.hpp"
 #include "utils.hpp"
+#include <cstring>
 #include <map>
-#include <string.h>
 
 using std::map;
 using std::string;

@@ -31,8 +31,8 @@
 
 #include "status_msg.hpp"
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -119,7 +119,7 @@ int split_line(char *line, std::vector<char *> &parts, const char *delims = 0,
  * \param iterator to end of string sequence
  * \param delim delimiter to include between strings
  * \return The joined and delimited strings */
-template<typename InputIt>
+template <typename InputIt>
 std::string join(InputIt first, InputIt last, std::string delim = " ")
 {
   std::string str;
@@ -127,7 +127,6 @@ std::string join(InputIt first, InputIt last, std::string delim = " ")
     str += *first + ((first + 1 != last) ? delim : std::string());
   return str;
 }
-
 
 /// Remove leading and trailing space, convert any whitespace to a single space
 /**\param str the string to convert.

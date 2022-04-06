@@ -26,84 +26,99 @@
 #include "utils.hpp"
 
 #include "cavacore.h"
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cerrno>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 class CavaFilter : public ProgramOpts {
-  public:
-    int bars_per_channel = 10;
-    const int channels = 2;
-    int channels_out = 1;
-    const int height = 100;
-    double framerate = 25;
-    const size_t input_len_per_channel = 512;
-    const int rate = 44100;
-    int autosens = 0;
-    double smooth_factor = 1; // 1: smooth, >1 more smooth, <1 less smooth
-    int print_freq_bands = false;
-    std::string ifile = "-";  // read from stdin
-    std::string ofile = "-";  // write to stdout
+public:
+  int bars_per_channel = 10;
+  const int channels = 2;
+  int channels_out = 1;
+  const int height = 100;
+  double framerate = 25;
+  const size_t input_len_per_channel = 512;
+  const int rate = 44100;
+  int autosens = 0;
+  double smooth_factor = 1; // 1: smooth, >1 more smooth, <1 less smooth
+  int print_freq_bands = false;
+  std::string in_file_name = "-";  // read from stdin
+  std::string out_file_name = "-"; // write to stdout
+  FILE *in_file = stdin;
+  FILE *out_file = stdout;
 
-    CavaFilter() : ProgramOpts("cava_filter") {}
-    void process_command_line(int argc, char **argv);
-    void usage();
+  CavaFilter() : ProgramOpts("cava_filter") {}
+  void process_command_line(int argc, char **argv);
+  void usage();
 
-    size_t input_len() const { return input_len_per_channel * channels; }
-    size_t output_len() const { return bars_per_channel * channels; }
-    double cava_smoothing() const
-    {
-      return smooth_factor * rate / input_len();
+  size_t input_len() const { return input_len_per_channel * channels; }
+  size_t output_len() const { return bars_per_channel * channels; }
+  double cava_smoothing() const { return smooth_factor * rate / input_len(); }
+  struct cava_plan *get_cava_plan()
+  {
+    return cava_init(bars_per_channel, rate, channels, height, cava_smoothing(),
+                     autosens);
+  }
+  void print_freq_bands_line(struct cava_plan *plan) const
+  {
+    if (print_freq_bands) {
+      for (int ch = 0; ch < channels_out; ch++)
+        for (int i = 0; i < bars_per_channel; i++)
+          fprintf(out_file, "%4d ", (int)plan->cut_off_frequency[i]);
+      fprintf(out_file, "\n");
     }
-    struct cava_plan *get_cava_plan()
-    {
-      return cava_init(bars_per_channel, rate, channels, height,
-                       cava_smoothing(), autosens);
+  }
+  void print_freq_vals_line(double *frame_bars) const
+  {
+    int num_bars_out = bars_per_channel * channels_out;
+    for (int i = 0; i < num_bars_out; i++) {
+      double bar_ht =
+          (channels_out == 2)
+              ? frame_bars[i]
+              : (frame_bars[i] + frame_bars[i + bars_per_channel]) / 2;
+      fprintf(out_file, "%4d ", (int)bar_ht);
     }
-    void print_freq_bands_line(struct cava_plan *plan) const
-    {
-      if (print_freq_bands) {
-        for (int i = 0; i < bars_per_channel; i++) {
-          printf("%4d ", (int)plan->cut_off_frequency[i]);
-        }
-        printf("\n");
-      }
-    }
-    void print_freq_vals_line(double *frame_bars) const {
-      int num_bars_out = bars_per_channel * channels_out;
-      for (int i = 0; i < num_bars_out; i++) {
-        double bar_ht =
-            (channels_out == 2)
-                ? frame_bars[i]
-                : (frame_bars[i] + frame_bars[i + bars_per_channel]) / 2;
-        printf("%4d ", (int)bar_ht);
-      }
-      printf("\n");
-    }
+    fprintf(out_file, "\n");
+  }
 
-    // discarding the fractional sample could lead to worst case
-    // desynchronization of approx .1 seconds per hour
-    int samples_per_frame() const { return (double)rate / framerate; }
+  // discarding the fractional sample could lead to worst case
+  // desynchronization of approx .1 seconds per hour
+  int samples_per_frame() const { return (double)rate / framerate; }
+
+  FILE *get_in_file() const { return in_file; }
+  FILE *get_out_file() const { return out_file; }
+  void close_files()
+  {
+    if (in_file != stdin)
+      fclose(in_file);
+    if (out_file != stdout)
+      fclose(out_file);
+  }
 };
 
 void CavaFilter::usage()
 {
   fprintf(stdout, R"(
-Usage: %s -o [options] [input_file] [output_file]
+Usage: %s [options] [input_file]
 
-cava_filter converts raw pcm_s16le format to frequency spectrum data. If
-output_file is not given, write to standard output, if input file is also
-not given, read from standard input.
-  
+convert raw pcm_s16le format to frequency spectrum data using the cavacore
+library https://github.com/karlstav/cava. If input_file is not given the
+program reads from standard input.
+
   Options
   %s
   -b <num>   number of bars to print (default: 10)
   -f <hz>    framerate in Hz (default: 25)
   -S         stereo output, print the right channel bars followed on the line
              by the left channel bars
-  -s <fact>  smooth factor <1.0 less smooth, >1.0 mode smooth (default: 1.0)
-  -a <auto>  value for cava autosens setting
+  -s <fact>  smooth factor, a number greater than 0.1 (not smooth) to set
+             spectrum smoothness (default: 1)
+  -a <auto>  value for the cava autosens setting (default: 0 no autosens)
   -F         the first line printed is the frequencies of the bands
+  -o <file>  write output to file (default: write to standard output)
+
   )",
           get_program_name().c_str(), help_ver_text);
 }
@@ -115,7 +130,7 @@ void CavaFilter::process_command_line(int argc, char **argv)
 
   handle_long_opts(argc, argv);
 
-  while ((c = getopt(argc, argv, ":hb:f:Ss:a:F")) != -1) {
+  while ((c = getopt(argc, argv, ":ho:b:f:Ss:a:F")) != -1) {
     if (common_opts(c, optopt))
       continue;
 
@@ -152,19 +167,40 @@ void CavaFilter::process_command_line(int argc, char **argv)
       print_freq_bands = true;
       break;
 
+    case 'o':
+      out_file_name = optarg;
+      break;
+
     default:
       error("unknown command line error");
     }
   }
 
-  if (argc - optind > 2)
+  if (argc - optind > 1)
     error("too many arguments");
 
-  if (argc - optind > 1)
-    ofile = argv[optind + 1];
+  if (argc - optind == 1)
+    in_file_name = argv[optind];
 
-  if (argc - optind > 0)
-    ifile = argv[optind];
+  if (in_file_name == "-") {
+    in_file = stdin;
+  }
+  else {
+    in_file = fopen(in_file_name.c_str(), "r");
+    if (!in_file)
+      error("could not open file for reading '" + in_file_name +
+            "': " + strerror(errno));
+  }
+
+  if (out_file_name == "-") {
+    out_file = stdout;
+  }
+  else {
+    out_file = fopen(out_file_name.c_str(), "w");
+    if (!out_file)
+      error("could not open file for writing '" + out_file_name +
+            "': " + strerror(errno));
+  }
 }
 
 int main(int argc, char *argv[])
@@ -177,7 +213,7 @@ int main(int argc, char *argv[])
   if (cava.print_freq_bands)
     cava.print_freq_bands_line(plan);
 
-  size_t input_len = cava.input_len();   // samples per execute
+  size_t input_len = cava.input_len(); // samples per execute
   size_t output_len = cava.output_len();
 
   int16_t *cava_in_int16 = (int16_t *)malloc(input_len * sizeof(int16_t));
@@ -214,7 +250,7 @@ int main(int argc, char *argv[])
       // input format pcm_s16le, converted with, e.g.
       // ffmpeg -i file.wav -f s16le -ar 44100 -acodec pcm_s16le -ac 2 file.raw
       size_t actual_num_read =
-          fread(cava_in_int16, sizeof(int16_t), read_len, stdin);
+          fread(cava_in_int16, sizeof(int16_t), read_len, cava.get_in_file());
       if (actual_num_read < read_len) { // end of stream or error
         finished = 1;
         break;
@@ -243,6 +279,7 @@ int main(int argc, char *argv[])
     cava.print_freq_vals_line(frame_bars);
   }
 
+  cava.close_files();
   cava_destroy(plan);
   free(plan);
   free(cava_in);

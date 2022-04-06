@@ -28,14 +28,14 @@
 */
 #include "utils.hpp"
 
-#include <errno.h>
-#include <ctype.h>
-#include <limits.h>
-#include <math.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cctype>
+#include <cerrno>
+#include <climits>
+#include <cmath>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -58,10 +58,10 @@ Status read_double(const char *str, double *f)
   else
     return Status::error("not a number");
 
-  if (isinf(*f))
+  if (std::isinf(*f))
     return Status::error("number too large\n");
 
-  if (isnan(*f))
+  if (std::isnan(*f))
     return Status::error("not a number\n");
 
   if (to_sqrt)
