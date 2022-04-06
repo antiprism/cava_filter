@@ -1,7 +1,8 @@
 # cava_filter
 
-*cava_filter* uses the new [Cava](https://github.com/karlstav/cava)
-cavacore library to produce produce frequency spectrum data for an audio file.
+`cava_filter` uses the new [Cava](https://github.com/karlstav/cava)
+cavacore library to process an audio file and print out the frequency
+spectrum data.
 
 ## Build instructions
 
@@ -14,7 +15,7 @@ sudo make install-strip
 
 ## Usage
 
-*cava_filter* converts raw pcm_s16le format to frequency spectrum data.
+`cava_filter` converts raw pcm_s16le format to frequency spectrum data.
 
 Convert file.wav to file.raw and process by cava_filter with the following
 command
@@ -50,5 +51,3 @@ program reads from standard input.
   -o <file>  write output to file (default: write to standard output)
 
 ```
-
-

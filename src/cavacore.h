@@ -1,5 +1,4 @@
 #pragma once
-
 #include <stdint.h>
 
 // the size of the smallest input buffer (treble). this will determin the size

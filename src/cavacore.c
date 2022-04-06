@@ -49,7 +49,7 @@ struct cava_plan *cava_init(int number_of_bars, unsigned int rate, int channels,
     exit(1);
   }
 
-  struct cava_plan *p = (struct cava_plan *)malloc(sizeof(struct cava_plan));
+  struct cava_plan *p = malloc(sizeof(struct cava_plan));
   p->number_of_bars = number_of_bars;
   p->audio_channels = channels;
   p->rate = rate;
