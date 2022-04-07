@@ -85,7 +85,10 @@ public:
 
   // discarding the fractional sample could lead to worst case
   // desynchronization of approx .1 seconds per hour
-  int samples_per_frame() const { return (double)rate / framerate; }
+  int samples_per_frame() const
+  {
+    return (double)(rate * channels) / framerate;
+  }
 
   FILE *get_in_file() const { return in_file; }
   FILE *get_out_file() const { return out_file; }
