@@ -4,6 +4,7 @@
 AC_PREREQ([2.69])
 AC_INIT([cava_filter], [0.01], [adrian@antiprism.com])
 AM_INIT_AUTOMAKE([1.9 foreign])
+LT_INIT
 
 AC_CONFIG_SRCDIR([src/utils.cpp])
 AC_CONFIG_HEADERS([config.h])
@@ -43,5 +44,6 @@ AC_LANG_POP([C++])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
+                 src/cavacore/Makefile
                  ])
 AC_OUTPUT

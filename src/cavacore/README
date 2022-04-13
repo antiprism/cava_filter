@@ -1,0 +1,5 @@
+cavacore
+Provides access to the audio spectrum calculations used by cava
+Files: cavacore.h, cavacore.c
+Downloaded from https://github.com/karlstav/cava
+

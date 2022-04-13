@@ -9,7 +9,7 @@ doc_DATA = README.md NEWS AUTHORS COPYING
 
 
 format_all:
-	for f in src/*.cpp src/*.h ; do \
+	for f in src/*.cpp src/*.hpp ; do \
 	  clang-format -style=file -i $$f; \
 	done
 
