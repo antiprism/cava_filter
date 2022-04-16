@@ -37,14 +37,13 @@ extern "C" {
 
 class CavaFilter : public ProgramOpts {
 private:
-  // Non-optional values
-  // input format must be pcm_s16le, stereo, 44100 sample rate, converted
-  // with, e.g. ffmpeg -i file.wav -f s16le -ar 44100 -acodec pcm_s16le -ac 2
-  const int channels = 2; // stereo
-  const int rate = 44100; // sample rate
-  const size_t input_len_per_channel = 512;
+  const size_t input_len_per_channel = 4096;
 
-  // Optional values
+  // input audio format must be pcm_s16le, convert with, e.g.
+  // ffmpeg -i file.wav -f s16le -ar 44100 -acodec pcm_s16le -ac 2
+  int channels = 2; // input audio number of channels (stereo)
+  int rate = 44100; // input audio sample rate
+
   int bars_per_channel = 10;
   int channels_out = 1;
   double framerate = 25;
@@ -102,6 +101,11 @@ void CavaFilter::print_freq_vals_line(
   fprintf(out_file, "\n");
 }
 
+namespace {
+bool is_odd(int num) { return num % 2; }
+};
+
+
 Status CavaFilter::generate_spectrum_file()
 {
   Status stat;
@@ -120,8 +124,8 @@ Status CavaFilter::generate_spectrum_file()
   std::vector<double> frame_bars(bars_total);    // frame bar values
 
   const double samples_per_frame = (double)(rate * channels) / framerate;
-  // '+ 1' sample to hold fractional part of sample
-  int execs_per_frame = ceil((samples_per_frame + 1) / input_len);
+  // + channels sample to ensure being able to hold fractional part of sample
+  int execs_per_frame = ceil((samples_per_frame + channels) / input_len);
   int samples_per_exec = samples_per_frame / execs_per_frame;
   int samples_remainder =
       samples_per_frame - execs_per_frame * samples_per_exec;
@@ -140,13 +144,21 @@ Status CavaFilter::generate_spectrum_file()
       // Add 1 to each of the first execs to include the samples remainder
       size_t read_len = samples_per_exec + (read_idx < samples_remainder);
 
-      // Add an extra sample if needed to the last exec. There should always
+      // ensure that buffer is filled with even number of samples
+      if (channels == 2 && is_odd(read_len)) {
+        // adjust by one sample, add or subtract on alternate iterations
+        const int offset = is_odd(read_idx) ? -1 : 1;
+        read_len += offset;
+        current_accumulated_sample_fractions -= offset; // balance accounts
+      }
+
+      // Add an extra samples if needed to the last exec. There should always
       // be room for this from the calculation of execs_per_frame
       if (read_idx == execs_per_frame - 1) {
         current_accumulated_sample_fractions += sample_fraction_per_frame;
-        if (current_accumulated_sample_fractions >= 1.0) {
-          read_len += 1;
-          current_accumulated_sample_fractions -= 1;
+        if (current_accumulated_sample_fractions >= channels) {
+          read_len += channels;
+          current_accumulated_sample_fractions -= channels;
         }
       }
 
@@ -187,9 +199,9 @@ void CavaFilter::usage()
   fprintf(stdout, R"(
 Usage: %s [options] [input_file]
 
-Convert raw pcm_s16le stereo 44100 format to frequency spectrum data using
-the cavacore library https://github.com/karlstav/cava. If input_file is not
-given the program reads from standard input.
+Convert raw pcm_s16le format to frequency spectrum data using the cavacore
+library https://github.com/karlstav/cava. If input_file is not given the
+program reads from standard input.
 
   Options
 %s
@@ -204,6 +216,8 @@ given the program reads from standard input.
   -c <frqs>  low and high cutoff frequencies for cava, two integers
              separated by a comma (default: 50,10000)
   -F         the first line printed is the frequencies of the bands
+  -R <hz>    input audio sample rate (default: 44100)
+  -C <cnls>  input audio channels 1-mono, 2-stereo (default: 2)
   -o <file>  write output to file (default: write to standard output)
 
   )",
@@ -218,7 +232,7 @@ void CavaFilter::process_command_line(int argc, char **argv)
 
   handle_long_opts(argc, argv);
 
-  while ((c = getopt(argc, argv, ":ho:b:f:Sn:a:c:F")) != -1) {
+  while ((c = getopt(argc, argv, ":ho:b:f:Sn:a:c:FR:C:")) != -1) {
     if (common_opts(c, optopt))
       continue;
 
@@ -265,6 +279,21 @@ void CavaFilter::process_command_line(int argc, char **argv)
 
     case 'F':
       print_freq_bands = true;
+      break;
+
+    case 'R':
+      print_status_or_exit(read_int(optarg, &rate), c);
+      if (rate < 1)
+        error("rate must be positive", c);
+      break;
+
+    case 'C':
+      if(strcmp(optarg, "1") == 0)
+        channels = 1;
+      else if(strcmp(optarg, "2") == 0)
+        channels = 2;
+      else
+        error("invalid number of channels, should be 1 or 2", c);
       break;
 
     case 'o':

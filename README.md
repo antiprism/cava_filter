@@ -32,9 +32,9 @@ To see all options run `cava_filter -h`
 ```
 Usage: cava_filter [options] [input_file]
 
-Convert raw pcm_s16le stereo 44100 format to frequency spectrum data using
-the cavacore library https://github.com/karlstav/cava. If input_file is not
-given the program reads from standard input.
+Convert raw pcm_s16le format to frequency spectrum data using the cavacore
+library https://github.com/karlstav/cava. If input_file is not given the
+program reads from standard input.
 
   Options
   -h,--help this help message
@@ -51,5 +51,7 @@ given the program reads from standard input.
   -c <frqs>  low and high cutoff frequencies for cava, two integers
              separated by a comma (default: 50,10000)
   -F         the first line printed is the frequencies of the bands
+  -R <hz>    input audio sample rate (default: 44100)
+  -C <cnls>  input audio channels 1-mono, 2-stereo (default: 2)
   -o <file>  write output to file (default: write to standard output)
 ```
